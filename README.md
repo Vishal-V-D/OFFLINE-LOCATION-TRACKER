@@ -48,6 +48,7 @@ A real-time GPS tracking application with a **Flutter** mobile client and a **Fl
 └──────────────────┘
 ```
 
+
 | Layer              | Tech                                                                |
 | ------------------ | ------------------------------------------------------------------- |
 | Mobile client      | Flutter 3.6+, Dart                                                  |
