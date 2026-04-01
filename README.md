@@ -5,7 +5,8 @@ A real-time GPS tracking application with a **Flutter** mobile client and a **Fl
 > **License:** GNU General Public License v3.0 — see [LICENSE](LICENSE).
 
 ---
- 
+
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
@@ -47,7 +48,6 @@ A real-time GPS tracking application with a **Flutter** mobile client and a **Fl
 │  • Offline SQLite │                           └──────────────────────┘
 └──────────────────┘
 ```
-
 
 | Layer              | Tech                                                                |
 | ------------------ | ------------------------------------------------------------------- |
