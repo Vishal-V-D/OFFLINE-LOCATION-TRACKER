@@ -89,13 +89,14 @@ class RelayService {
         _registerAsChild();
       } else if (_pendingChildId != null) {
         // Subscribe now that the socket is actually open
-        _socket!.emit('parent_subscribe', {'childId': _pendingChildId});
+        _socket!.emit('parent_subscribe', {'childId': _pendingChildId, 'parentId': _userId});
         if (kDebugMode) print('[RelayService] Subscribed to child: $_pendingChildId');
         // Fire pending DB sync request if queued
         if (_pendingSyncChildId != null) {
           _socket!.emit('parent_request_sync', {
             'childId': _pendingSyncChildId,
             'fromTimestamp': _pendingSyncFromTimestamp,
+            'parentId': _userId,
           });
           if (kDebugMode) print('[RelayService] Sync emitted (deferred) from=$_pendingSyncFromTimestamp');
           _pendingSyncChildId = null;
@@ -120,7 +121,7 @@ class RelayService {
       if (_isChild) {
         _registerAsChild();
       } else if (_pendingChildId != null) {
-        _socket!.emit('parent_subscribe', {'childId': _pendingChildId});
+        _socket!.emit('parent_subscribe', {'childId': _pendingChildId, 'parentId': _userId});
       }
     });
 
@@ -314,7 +315,7 @@ class RelayService {
   void subscribeToChild(String childId) {
     _pendingChildId = childId;
     if (_connected && _socket != null) {
-      _socket!.emit('parent_subscribe', {'childId': childId});
+      _socket!.emit('parent_subscribe', {'childId': childId, 'parentId': _userId});
       if (kDebugMode) print('[RelayService] Subscribed to child: $childId');
     }
     // else: onConnect will subscribe once the socket opens
@@ -332,6 +333,7 @@ class RelayService {
     _socket!.emit('parent_request_history', {
       'childId': childId,
       'date': date,
+      'parentId': _userId,
     });
   }
 
@@ -340,6 +342,7 @@ class RelayService {
     if (!_connected || _socket == null) return;
     _socket!.emit('parent_request_dates', {
       'childId': childId,
+      'parentId': _userId,
     });
   }
 
@@ -362,6 +365,7 @@ class RelayService {
     _socket!.emit('parent_request_sync', {
       'childId': childId,
       'fromTimestamp': fromTimestamp,
+      'parentId': _userId,
     });
     if (kDebugMode) print('[RelayService] Sync emitted immediately from=$fromTimestamp');
   }
