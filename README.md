@@ -6,7 +6,6 @@ A real-time GPS tracking application with a **Flutter** mobile client and a **Fl
 
 ---
 
-
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
@@ -536,3 +535,143 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
   <strong>GPS Tracker</strong> — Built with Flutter & Flask<br>
   Licensed under <a href="LICENSE">GPLv3</a>
 </p>
+
+---
+
+---
+
+# Offline Location Tracker Architecture
+
+## 1. High-Level Architecture
+
+The system follows a client-server architecture, specifically designed to handle background location updates, offline data persistence, and real-time parent-child device synchronization.
+
+```mermaid
+graph TD
+    subgraph Mobile Client [Flutter Mobile App]
+        UI[UI / View Layer]
+        State[State Management - Provider]
+        BGS[flutter_background_service]
+        SQLite[(Local SQLite DB)]
+        Geolocator(Location Sensors)
+    end
+
+    subgraph Backend [Flask Server]
+        API[REST API layer]
+        Sockets[Socket.IO / Eventlet]
+        BLL(Business Logic Layer)
+    end
+
+    subgraph Database Layer
+        MongoDB[(MongoDB Atlas / Local)]
+    end
+
+    UI <--> State
+    State <--> API
+    State <--> Sockets
+    BGS --> Geolocator
+    BGS <--> SQLite
+    BGS --> API
+
+    API <--> BLL
+    Sockets <--> BLL
+    BLL <--> MongoDB
+```
+
+> [!NOTE]
+> The dual architecture of the client allows it to act as both a **Child** (transmitting location) and a **Parent** (monitoring location), relying heavily on background processing and robust real-time communication.
+
+---
+
+## 2. Frontend Architecture (Flutter)
+
+The frontend is a cross-platform Android application built using **Flutter**.
+
+### Core Layers
+
+- **UI & View:** Built using standard Flutter widgets and mapping engines (`flutter_map` + OpenStreetMap).
+- **Routing:** Handled via `go_router` for a predictable and deep-linkable navigation state.
+- **State Management:** Driven by `Provider`, which acts as the source of truth for the session, connecting the UI to the background streams.
+- **Background Execution Workflows:** Using `flutter_background_service` hooked with `geolocator`. It wakes up the device sensors regardless of whether the app is in the foreground, background, or swiped away.
+- **Offline Fallback:** If internet connectivity drops, location telemetry is safely deferred to an **on-device SQLite** store.
+
+---
+
+## 3. Backend Architecture (Flask)
+
+The backend is a lightweight yet highly concurrent Python application.
+
+### Core Stack
+
+- **Framework:** **Flask** provides the routing and request context.
+- **Concurrency limits:** Backed by `Eventlet` acting as the asynchronous WSGI server to gracefully handle long-lived WebSocket connections without blocking the main event loops.
+- **Deployment:** Configured for out-of-the-box deployment to cloud platforms like Render (via `render.yaml` & `gunicorn`).
+
+### Primary Responsibilities
+
+1.  **Authentication Control:** Cryptographic hashing of passwords leveraging `bcrypt`.
+2.  **Telemetry Offloading:** Endpoints to rapidly collect batched or individual GPS coordinates.
+3.  **Real-Time Subscriptions:** Managing the pairing and real-time forwarding of state between parent and child devices.
+
+---
+
+## 4. Communication & Transactions
+
+The system uses a **Bimodal Communication Protocol** to optimize for battery life, reliability, and low latency.
+
+```mermaid
+sequenceDiagram
+    participant Child App
+    participant Flask Server
+    participant Parent App
+
+    Note over Child App, Parent App: 1. REST API (Batch & Sync)
+    Child App->>Child App: Store locations offline (SQLite)
+    Child App->>Flask Server: POST /send (Batch coordinates)
+    flask Server-->>Child App: 200 OK
+
+    Note over Child App, Parent App: 2. Real-Time WebSockets (Live Live-Tracking)
+    Child App->>Flask Server: emit('child_location_update')
+    Flask Server->>Parent App: emit('live_location')
+
+    Note over Child App, Parent App: 3. On-Demand Sync
+    Parent App->>Flask Server: emit('parent_request_sync')
+    Flask Server->>Child App: emit('sync_request')
+    Child App->>Flask Server: emit('child_sync_batch')
+    Flask Server->>Parent App: emit('sync_batch')
+```
+
+### 4.1 REST API (Stateless)
+
+Used for standard requests that tolerate regular HTTP overhead and don't require streaming.
+
+- **Transactions:** `POST /auth/login`, `POST /send` (Batch Data Dump), `GET /history`.
+- **Characteristics:** Secure, easy to load-balance, traditional Request/Response paradigm.
+
+### 4.2 WebSockets / Socket.IO (Stateful)
+
+Used exclusively for live interactions where polling via HTTP would dramatically drain the battery and increase latency.
+
+- **Transactions:** `child_online` presence detection, `child_location_update` real-time pipelining, and peer-to-peer style on-demand sync flows.
+- **Characteristics:** Dedicated TCP connection, event-driven, bidirectional.
+
+---
+
+## 5. Database (DB)
+
+### MongoDB (Primary Remote DB)
+
+Used as the persistent data lake for the application. It stores everything from user credentials to historical GPS data.
+
+- **Collections Structure:**
+  - `ourusers`: Stores authentication properties and roles.
+  - **Dynamic Sharding by Date:** Collections are named dynamically per date (e.g., `2026_03_08`). This essentially acts as time-series data sharding, heavily limiting the size of indexes and speeding up daily retrieval.
+
+### SQLite (Secondary Local DB)
+
+Used strictly on the client (Flutter) device.
+
+- **Purpose:** Ensures **zero data loss** when moving through dead zones.
+- **Mechanism:** Background services write to it constantly. A background job polls this SQLite DB and attempts `POST` syncs to the Backend. Upon HTTP 200 success, the synced rows are seamlessly purged from the local table.
+
+---
