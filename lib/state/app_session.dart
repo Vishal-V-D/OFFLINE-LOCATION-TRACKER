@@ -8,6 +8,7 @@ import 'package:gpstracking/services/background_service.dart';
 import 'package:gpstracking/services/location_service.dart';
 import 'package:gpstracking/services/relay_service.dart';
 import 'package:gpstracking/utils/location_helper.dart';
+import 'package:gpstracking/utils/battery_helper.dart';
 
 /// App session state - manages authentication, role, and tracking state
 class AppSession extends ChangeNotifier {
@@ -319,6 +320,7 @@ class AppSession extends ChangeNotifier {
       };
 
     await _locationService!.startTracking();
+    await requestBatteryOptimizationExemption(context);
     await BackgroundService.startService(_userId!);
 
     _trackingActive = true;
