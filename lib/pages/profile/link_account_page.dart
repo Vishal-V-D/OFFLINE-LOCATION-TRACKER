@@ -45,9 +45,9 @@ class _LinkAccountPageState extends State<LinkAccountPage> {
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Camera'),
-              onTap: () async {
+              onTap: () {
                 Navigator.pop(ctx);
-                final file = await picker.pickImage(source: ImageSource.camera);
+                _startScanner(); // opens live camera scanner
               },
             ),
             ListTile(
@@ -57,6 +57,23 @@ class _LinkAccountPageState extends State<LinkAccountPage> {
                 Navigator.pop(ctx);
                 final file =
                     await picker.pickImage(source: ImageSource.gallery);
+                if (file == null || !mounted) return;
+
+                // Feed the image into mobile_scanner for QR decoding
+                final tempController = MobileScannerController();
+                final result = await tempController.analyzeImage(file.path);
+                await tempController.dispose();
+
+                if (!mounted) return;
+
+                if (result != null && result.barcodes.isNotEmpty) {
+                  // Reuse the same _onDetect logic
+                  _onDetect(result);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No QR code found in image.')),
+                  );
+                }
               },
             ),
           ],
