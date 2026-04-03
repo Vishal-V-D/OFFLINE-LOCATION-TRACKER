@@ -133,6 +133,13 @@ class AppSession extends ChangeNotifier {
         }
       }
 
+      if (_role == UserRole.child) {
+        _trackingActive = await BackgroundService.isRunning();
+        if (_trackingActive) {
+          _trackingLogs.add('Restored tracking state on app reopen');
+        }
+      }
+
       notifyListeners();
     }
   }
