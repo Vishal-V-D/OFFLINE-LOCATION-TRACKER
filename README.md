@@ -3,6 +3,7 @@
 A real-time GPS tracking application with a **Flutter** mobile client and a **Flask + MongoDB** backend server. The app supports child–parent tracking, background location services, trip history, and QR-code-based device pairing.
 
 > **License:** GNU General Public License v3.0 — see [LICENSE](LICENSE).
+> **Motivation:** This is FOSS Hackathon Project — see Source Project [Source](https://github.com/karthikvvk/GPSTrackerBackend).
 
 ---
 
